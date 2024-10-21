@@ -1,0 +1,32 @@
+version: "3.8"
+
+services:
+  fastapi:
+    build: .
+    container_name: fastapi_app_dev
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env.dev  # Use development environment file
+    volumes:
+      - .:/app
+    depends_on:
+      - mongo
+      - redis
+
+  mongo:
+    image: mongo
+    container_name: mongodb_dev
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo-data:/data/db
+
+  redis:
+    image: redis
+    container_name: redis_cache_dev
+    ports:
+      - "6379:6379"
+
+volumes:
+  mongo-data:

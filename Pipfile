@@ -1,0 +1,19 @@
+[[source]]
+url = "https://pypi.org/simple"
+verify_ssl = true
+name = "pypi"
+
+[packages]
+fastapi = "*"
+uvicorn = "*"
+motor = "*"
+redis = "*"
+boto3 = "*"
+pydantic = "*"
+pytest = "*"
+pytest-asyncio = "*"
+
+[dev-packages]
+
+[requires]
+python_version = "3.10"

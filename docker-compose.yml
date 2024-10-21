@@ -1,0 +1,36 @@
+version: "3.8"
+
+services:
+  fastapi:
+    build: .
+    container_name: fastapi_app_prod
+    ports:
+      - "8000:8000"
+    environment:
+      - ENV=prod  
+      - MONGO_URI=mongodb://mongodb_prod:27017/prod-db
+      - REDIS_HOST=redis_cache_prod
+      - AWS_ACCESS_KEY_ID=your-prod-access-key
+      - AWS_SECRET_ACCESS_KEY=your-prod-secret-key
+    depends_on:
+      - mongo
+      - redis
+    restart: always  # Ensure containers restart in case of failure
+
+  mongo:
+    image: mongo
+    container_name: mongodb_prod
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo-data:/data/db
+
+  redis:
+    image: redis
+    container_name: redis_cache_prod
+    ports:
+      - "6379:6379"
+    restart: always
+
+volumes:
+  mongo-data:
