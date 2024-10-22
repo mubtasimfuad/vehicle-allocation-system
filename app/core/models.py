@@ -84,6 +84,12 @@ class Allocation(BaseModel):
         if from_datetime and from_datetime >= to_datetime:
             raise ValueError("from_datetime must be earlier than to_datetime.")
         return to_datetime
+    @validator("from_datetime")
+    def check_from_before_to(cls, from_datetime, values):
+        to_datetime = values.get("to_datetime")
+        if to_datetime and from_datetime >= to_datetime or from_datetime <= datetime.now(timezone.utc):
+            raise ValueError("from_datetime must be earlier than to_datetime and in the future.")
+        return from_datetime
 
 
 class UpdateAllocation(BaseModel):
@@ -105,9 +111,9 @@ class UpdateAllocation(BaseModel):
         if from_datetime and from_datetime.tzinfo is None:
             from_datetime = from_datetime.replace(tzinfo=timezone.utc)
 
-        # Ensure from_datetime is in the future
+        # Ensure old allocations cannot be modified
         if from_datetime and from_datetime <= now_utc:
-            raise ValueError("from_datetime must be in the future.")
+            raise ValueError("Past allocations cannot be modified.")
 
         # Ensure from_datetime is before to_datetime
         if from_datetime and to_datetime:

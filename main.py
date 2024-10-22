@@ -1,8 +1,17 @@
+import logging
+import logging.config
 from fastapi import FastAPI
 from app.routers import allocation, vehicle, user_role, report
 from app.infrastructure.config import settings
 
-app = FastAPI()
+logging.config.fileConfig('logging.conf')
+
+general_logger = logging.getLogger('appLogger')
+error_logger = logging.getLogger('errorLogger')
+
+app = FastAPI(debug=True)
+
+
 
 # Dynamically use environment settings
 @app.get("/")

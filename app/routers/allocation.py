@@ -1,3 +1,4 @@
+from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException
 from app.core.exceptions import DuplicateBookingError, VehicleUnavailableError
 from app.core.services import AllocationService
@@ -89,3 +90,42 @@ async def get_allocation_history(
     except Exception as e:
         logger.error(f"Error fetching allocation history: {e}")
         raise HTTPException(status_code=500, detail="An internal error occurred")
+
+
+@router.get("/history")
+async def get_allocation_history(
+    employee_id: Optional[str] = None,
+    vehicle_id: Optional[str] = None,
+    start_date: Optional[str] = None,
+    end_date: Optional[str] = None,
+    page: int = 1,
+    size: int = 10,
+    allocation_service: AllocationService = Depends(get_allocation_service),
+):
+    """
+    Fetch the allocation history based on provided filters.
+    Pagination supported via 'page' and 'size'.
+    """
+    try:
+        allocations, total_count = await allocation_service.get_filtered_allocations(
+            employee_id=employee_id,
+            vehicle_id=vehicle_id,
+            start_date=start_date,
+            end_date=end_date,
+            page=page,
+            size=size,
+        )
+        if not allocations:
+            raise HTTPException(
+                status_code=404, detail="No allocations found for the given filters"
+            )
+
+        # Return paginated response
+        return {
+            "total_count": total_count,
+            "page": page,
+            "size": size,
+            "allocations": allocations,
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))

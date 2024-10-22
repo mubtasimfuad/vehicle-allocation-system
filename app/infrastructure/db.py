@@ -1,3 +1,4 @@
+from typing import List
 from motor.motor_asyncio import AsyncIOMotorClient
 from app.core.models import Allocation, Vehicle
 
@@ -10,6 +11,17 @@ def get_db(client):
 class AllocationRepository:
     def __init__(self, db):
         self.db = db
+
+    async def get_allocations_by_filter(self, query: dict, skip: int = 0, limit: int = 10) -> List[Allocation]:
+        # Perform the paginated query
+        allocations = await self.db.allocations.find(query).skip(skip).limit(limit).to_list(limit)
+        for allocation in allocations:
+            allocation["_id"] = str(allocation["_id"])  # Convert ObjectId to string
+        return allocations
+
+    async def get_count(self, query: dict) -> int:
+        # Get the total count of documents matching the query (for pagination)
+        return await self.db.allocations.count_documents(query)
 
     async def save_allocation(self, allocation: Allocation, session=None):
         allocation_data = allocation.dict(by_alias=True)
@@ -28,6 +40,7 @@ class AllocationRepository:
         if allocation:
             allocation["_id"] = str(allocation["_id"])
         return allocation
+
     async def get_allocations_by_employee(self, employee_id: str):
         allocations = await self.db.allocations.find(
             {"employee_id": employee_id}
@@ -35,7 +48,6 @@ class AllocationRepository:
         for allocation in allocations:
             allocation["_id"] = str(allocation["_id"])  # Convert ObjectId to string
         return allocations
-    
 
     async def get_allocation_by_id(self, allocation_id: str, session=None):
         allocation = await self.db.allocations.find_one(
@@ -64,8 +76,6 @@ class VehicleRepository:
         vehicle_data = vehicle.dict(by_alias=True)
         await self.db.vehicles.insert_one(vehicle_data, session=session)
 
-    
-
     async def get_vehicle_by_id(self, vehicle_id: str, session=None) -> Vehicle:
         vehicle_data = await self.db.vehicles.find_one(
             {"vehicle_id": vehicle_id}, session=session  # Ensure the session is passed
@@ -84,9 +94,15 @@ class VehicleRepository:
             {"$set": vehicle_data},
             session=session,  # Ensure the session is passed
         )
-    
+
     async def get_vehicles_by_status(self, status: str):
         vehicles = await self.db.vehicles.find({"status": status}).to_list(100)
+        for vehicle in vehicles:
+            vehicle["_id"] = str(vehicle["_id"])
+        return vehicles
+
+    async def get_all_vehicles(self):
+        vehicles = await self.db.vehicles.find().to_list(100)
         for vehicle in vehicles:
             vehicle["_id"] = str(vehicle["_id"])
         return vehicles
