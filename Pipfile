@@ -12,6 +12,7 @@ boto3 = "*"
 pydantic = "*"
 pytest = "*"
 pytest-asyncio = "*"
+pydantic-settings = "*"
 
 [dev-packages]
 

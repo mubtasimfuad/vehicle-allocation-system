@@ -8,7 +8,7 @@ services:
       - "8000:8000"
     environment:
       - ENV=prod  
-      - MONGO_URI=mongodb://mongodb_prod:27017/prod-db
+      - MONGO_URI=mongodb://mongodb_prod:27017/prod-db?replicaSet=rs0  # Add ?replicaSet=rs0
       - REDIS_HOST=redis_cache_prod
       - AWS_ACCESS_KEY_ID=your-prod-access-key
       - AWS_SECRET_ACCESS_KEY=your-prod-secret-key
@@ -22,8 +22,15 @@ services:
     container_name: mongodb_prod
     ports:
       - "27017:27017"
+    environment:
+      - MONGO_INITDB_ROOT_USERNAME=admin  # Add root user if needed
+      - MONGO_INITDB_ROOT_PASSWORD=admin  # Add root password if needed
+      - MONGO_REPLICA_SET_NAME=rs0  # Name of the replica set
     volumes:
       - mongo-data:/data/db
+      - ./mongo-init.js:/docker-entrypoint-initdb.d/mongo-init.js  # Init script to configure replica set
+    command: ["mongod", "--replSet", "rs0"]  # Command to run MongoDB with replica set enabled
+    restart: always
 
   redis:
     image: redis

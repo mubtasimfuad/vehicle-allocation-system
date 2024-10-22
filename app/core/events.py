@@ -7,7 +7,6 @@ class VehicleBookedEvent(BaseModel):
     vehicle_id: str
     employee_id: str
     timestamp: str = datetime.utcnow().isoformat()
-    mileage: float
     purpose: str
 
 class VehicleMaintenanceEvent(BaseModel):
