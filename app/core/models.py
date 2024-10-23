@@ -36,7 +36,7 @@ class Employee(BaseModel):
     employee_id: str
     name: str
     role: str = Role.EMPLOYEE
-    email = str 
+    email :str 
 
 
 class Vehicle(BaseModel):
