@@ -6,6 +6,7 @@ from app.core.models import Allocation, UpdateAllocation
 from app.infrastructure.db import AllocationRepository, VehicleRepository
 from app.infrastructure.cache import RedisCache
 from motor.motor_asyncio import AsyncIOMotorClient
+from utils import get_response
 import logging
 
 # Initialize logging
@@ -37,19 +38,38 @@ async def allocate_vehicle(
             allocation.to_datetime,
             allocation.purpose,
         )
-        return {
-            "message": "Vehicle allocated successfully",
-            "allocation": saved_allocation,
-        }
+        return get_response(
+            code="ALLOCATED",
+            status=200,
+            error=False,
+            message="Vehicle allocated successfully",
+            data={"allocation": saved_allocation},
+        )
+
     except DuplicateBookingError as e:
         logger.warning(f"Duplicate booking error: {e}")
-        raise HTTPException(status_code=409, detail=str(e))
+        return get_response(
+            status=409,
+            error=True,
+            code="DUPLICATE_BOOKING",
+            message=str(e),
+        )
     except VehicleUnavailableError as e:
         logger.warning(f"Vehicle unavailable: {e}")
-        raise HTTPException(status_code=400, detail=str(e))
+        return get_response(
+            status=409,
+            error=True,
+            code="VEHICLE_UNAVAILABLE",
+            message=str(e),
+        )
     except Exception as e:
         logger.error(f"Error allocating vehicle: {e}")
-        raise HTTPException(status_code=500, detail="An internal error occurred")
+        return get_response(
+            status=500,
+            error=True,
+            code="INTERNAL_ERROR",
+            message="An internal error occurred",
+        )
 
 
 @router.patch("/update/{allocation_id}")
@@ -66,30 +86,41 @@ async def update_allocation(
             to_datetime=update_data.to_datetime,
             purpose=update_data.purpose,
         )
-        return {
-            "message": "Allocation updated successfully",
-            "allocation": updated_allocation,
-        }
+        return get_response(
+            code="VEHICLE_UPDATED",
+            status=200,
+            error=False,
+            message="Allocation updated successfully",
+            data={"allocation": updated_allocation},
+        )
+
     except ValueError as e:
         logger.error(f"Validation error: {e}")
-        raise HTTPException(status_code=400, detail=str(e))
+        return get_response(
+            status=400, error=True, code="VALIDATION_ERROR", message=str(e)
+        )
     except Exception as e:
         logger.error(f"Error updating allocation: {e}")
-        raise HTTPException(status_code=500, detail="An internal error occurred")
+        return get_response(
+            status=500,
+            error=True,
+            code="INTERNAL_ERROR",
+            message="An internal error occurred",
+        )
 
 
-# Endpoint to get allocation history
-@router.get("/history/{employee_id}")
-async def get_allocation_history(
-    employee_id: str,
-    allocation_service: AllocationService = Depends(get_allocation_service),
-):
-    try:
-        allocations = await allocation_service.get_allocation_history(employee_id)
-        return allocations
-    except Exception as e:
-        logger.error(f"Error fetching allocation history: {e}")
-        raise HTTPException(status_code=500, detail="An internal error occurred")
+# # Endpoint to get allocation history
+# @router.get("/history/{employee_id}")
+# async def get_allocation_history(
+#     employee_id: str,
+#     allocation_service: AllocationService = Depends(get_allocation_service),
+# ):
+#     try:
+#         allocations = await allocation_service.get_allocation_history(employee_id)
+#         return allocations
+#     except Exception as e:
+#         logger.error(f"Error fetching allocation history: {e}")
+#         raise HTTPException(status_code=500, detail="An internal error occurred")
 
 
 @router.get("/history")
@@ -116,16 +147,31 @@ async def get_allocation_history(
             size=size,
         )
         if not allocations:
-            raise HTTPException(
-                status_code=404, detail="No allocations found for the given filters"
+            return get_response(
+                status=404,
+                error=True,
+                code="NOT_FOUND",
+                message="No allocations found for the given filters",
             )
 
         # Return paginated response
-        return {
-            "total_count": total_count,
-            "page": page,
-            "size": size,
-            "allocations": allocations,
-        }
+        return get_response(
+            code="ALLOCATIONS_FOUND",
+            status=200,
+            error=False,
+            message="Allocations found",
+            data={
+                "total_count": total_count,
+                "page": page,
+                "size": size,
+                "allocations": allocations,
+            },
+        )
+
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        return get_response(
+            status=500,
+            error=True,
+            code="INTERNAL_ERROR",
+            message="An internal error occurred",
+        )

@@ -1,11 +1,11 @@
 import logging
-from fastapi import APIRouter, Depends, HTTPException
-from typing import List
+from fastapi import APIRouter, Depends
 from app.core.services import VehicleService
 from app.core.models import Vehicle
-from app.infrastructure.db import VehicleRepository, get_db
+from app.infrastructure.db import VehicleRepository
 from app.infrastructure.cache import RedisCache  # Import RedisCache
 from motor.motor_asyncio import AsyncIOMotorClient
+from utils import get_response
 
 router = APIRouter()
 
@@ -18,8 +18,12 @@ def get_vehicle_service():
     vehicle_repo = VehicleRepository(
         db_client.vehicle_allocation_db
     )  # Pass the db instance to the repository
-    cache = RedisCache(redis_url="redis://localhost:6379")  # Initialize the cache instance
-    return VehicleService(vehicle_repo, cache)  # Return the service with both vehicle_repo and cache
+    cache = RedisCache(
+        redis_url="redis://localhost:6379"
+    )  # Initialize the cache instance
+    return VehicleService(
+        vehicle_repo, cache
+    )  # Return the service with both vehicle_repo and cache
 
 
 @router.post(
@@ -45,14 +49,23 @@ async def add_vehicle(
     """
     try:
         await vehicle_service.add_vehicle(vehicle)
-        return {
-            "message": "Vehicle added successfully",
-            "vehicle_id": vehicle.vehicle_id,
-        }
+
+        return get_response(
+            code="VEHICLE_ADDED",
+            status=201,
+            error=False,
+            message="Vehicle added successfully",
+            data={"vehicle_id": vehicle.vehicle_id},
+        )
+
     except Exception as e:
-        print("Exception adding a vehicle: ", e)
         error_logger.error(f"Error adding vehicle: {e}")
-        raise HTTPException(status_code=400, detail=str(e))
+        return get_response(
+            status=400,
+            error=True,
+            code="INTERNAL_ERROR",
+            message=str(e),
+        )
 
 
 @router.get(
@@ -74,10 +87,30 @@ async def get_available_vehicles(
 
     - **returns**: A list of vehicles that are available.
     """
-    available_vehicles = await vehicle_service.get_available_vehicles()
-    if not available_vehicles:
-        raise HTTPException(status_code=404, detail="No available vehicles found")
-    return available_vehicles
+    try:
+        available_vehicles = await vehicle_service.get_available_vehicles()
+        if not available_vehicles:
+            return get_response(
+                status=404,
+                error=True,
+                code="NO_VEHICLES",
+                message="No available vehicles found",
+            )
+        return get_response(
+            code="VEHICLES_AVAILABLE",
+            status=200,
+            error=False,
+            message="List of available vehicles",
+            data=available_vehicles,
+        )
+    except Exception as e:
+        error_logger.error(f"Error fetching available vehicles: {e}")
+        return get_response(
+            status=400,
+            error=True,
+            code="INTERNAL_ERROR",
+            message=str(e),
+        )
 
 
 # Endpoint to update vehicle
@@ -107,12 +140,22 @@ async def update_vehicle(
     try:
         vehicle.vehicle_id = vehicle_id
         await vehicle_service.update_vehicle(vehicle)
-        return {"message": "Vehicle details updated successfully"}
+        return get_response(
+            code="VEHICLE_UPDATED",
+            status=200,
+            error=False,
+            message="Vehicle details updated successfully",
+        )
     except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        error_logger.error(f"Error updating vehicle: {e}")
+        return get_response(
+            status=400,
+            error=True,
+            code="INTERNAL_ERROR",
+            message=str(e),
+        )
 
 
-# route for all vehicles
 @router.get(
     "/all",
     # response_model=List[VehicleResponse],
@@ -132,7 +175,27 @@ async def get_all_vehicles(
 
     - **returns**: A list of all vehicles in the system.
     """
-    all_vehicles = await vehicle_service.get_all_vehicles()
-    if not all_vehicles:
-        raise HTTPException(status_code=404, detail="No vehicles found")
-    return all_vehicles
+    try:
+        all_vehicles = await vehicle_service.get_all_vehicles()
+        if not all_vehicles:
+            return get_response(
+                status=404,
+                error=True,
+                code="NO_VEHICLES",
+                message="No vehicles found",
+            )
+        return get_response(
+            code="VEHICLES_FOUND",
+            status=200,
+            error=False,
+            message="List of all vehicles",
+            data=all_vehicles,
+        )
+    except Exception as e:
+        error_logger.error(f"Error fetching all vehicles: {e}")
+        return get_response(
+            status=400,
+            error=True,
+            code="INTERNAL_ERROR",
+            message=str(e),
+        )
