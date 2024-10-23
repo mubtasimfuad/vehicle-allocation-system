@@ -1,10 +1,11 @@
+import os
 from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException
 from app.core.exceptions import DuplicateBookingError, VehicleUnavailableError
 from app.core.services import AllocationService
 from app.core.models import Allocation, UpdateAllocation
-from app.infrastructure.db import AllocationRepository, VehicleRepository
-from app.infrastructure.cache import RedisCache
+from app.infrastructure.db import AllocationRepository, VehicleRepository, get_db
+from app.infrastructure.cache import get_cahce
 from motor.motor_asyncio import AsyncIOMotorClient
 from utils import get_response
 import logging
@@ -13,14 +14,14 @@ import logging
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
-db_client = AsyncIOMotorClient("mongodb://localhost:27017")
 
 
 # Dependency injection for AllocationService
 def get_allocation_service():
-    allocation_repo = AllocationRepository(db_client.vehicle_allocation_db)
-    vehicle_repo = VehicleRepository(db_client.vehicle_allocation_db)
-    cache = RedisCache(redis_url="redis://localhost:6379")
+    db_client, db = get_db()
+    cache = get_cahce()
+    allocation_repo = AllocationRepository(db)
+    vehicle_repo = VehicleRepository(db)
     return AllocationService(allocation_repo, vehicle_repo, cache, db_client)
 
 

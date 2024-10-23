@@ -1,29 +1,25 @@
 import logging
+import os
 from fastapi import APIRouter, Depends
 from app.core.services import VehicleService
 from app.core.models import Vehicle
-from app.infrastructure.db import VehicleRepository
-from app.infrastructure.cache import RedisCache  # Import RedisCache
+from app.infrastructure.db import VehicleRepository, get_db
+from app.infrastructure.cache import get_cahce
 from motor.motor_asyncio import AsyncIOMotorClient
 from utils import get_response
 
 router = APIRouter()
 
-db_client = AsyncIOMotorClient("mongodb://localhost:27017")
+
 error_logger = logging.getLogger("errorLogger")  # For error logs
 
 
 # Dependency injection for VehicleService with the repository and cache
 def get_vehicle_service():
-    vehicle_repo = VehicleRepository(
-        db_client.vehicle_allocation_db
-    )  # Pass the db instance to the repository
-    cache = RedisCache(
-        redis_url="redis://localhost:6379"
-    )  # Initialize the cache instance
-    return VehicleService(
-        vehicle_repo, cache
-    )  # Return the service with both vehicle_repo and cache
+    _, db = get_db()
+    cache = get_cahce()
+    vehicle_repo = VehicleRepository(db)
+    return VehicleService(vehicle_repo, cache)
 
 
 @router.post(

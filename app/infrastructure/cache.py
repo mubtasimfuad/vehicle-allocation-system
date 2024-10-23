@@ -4,6 +4,12 @@ import logging
 from redis.exceptions import RedisError
 from typing import Any
 from datetime import datetime
+import os
+
+
+def get_cahce():
+    REDIS_HOST = os.getenv("REDIS_HOST", "redis://localhost:6379")
+    return RedisCache(REDIS_HOST)
 
 
 class RedisCache:
@@ -26,6 +32,7 @@ class RedisCache:
 
     async def set(self, key: str, value: Any, expiration: int = 3600):
         try:
+
             def default_serializer(obj):
                 if isinstance(obj, datetime):
                     return obj.isoformat()

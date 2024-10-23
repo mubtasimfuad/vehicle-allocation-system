@@ -1,20 +1,37 @@
+import logging
+import os
 from typing import List
 from motor.motor_asyncio import AsyncIOMotorClient
 from app.core.models import Allocation, Vehicle
+# Set up logging
+general_logger = logging.getLogger("appLogger")  # For general logs
+error_logger = logging.getLogger("errorLogger")  # For error logs
 
 
-# Database connection logic
-def get_db(client):
-    return client.vehicle_allocation_db  # Return the specific database instance
+
+def get_db():
+    """Return the MongoDB database object"""
+    # Get MongoDB connection details from environment variables
+    MONGO_URI = os.getenv("MONGO_URI", "mongodb://localhost:27017")
+    MONGO_DB_NAME = os.getenv("MONGO_DB_NAME", "vehicle_allocation_db")
+    general_logger.info(f"Connecting to MongoDB at {MONGO_URI}...")
+    # MongoDB Client
+    db_client = AsyncIOMotorClient(MONGO_URI)
+    db = db_client[MONGO_DB_NAME]
+    return db_client, db
 
 
 class AllocationRepository:
     def __init__(self, db):
         self.db = db
 
-    async def get_allocations_by_filter(self, query: dict, skip: int = 0, limit: int = 10) -> List[Allocation]:
+    async def get_allocations_by_filter(
+        self, query: dict, skip: int = 0, limit: int = 10
+    ) -> List[Allocation]:
         # Perform the paginated query
-        allocations = await self.db.allocations.find(query).skip(skip).limit(limit).to_list(limit)
+        allocations = (
+            await self.db.allocations.find(query).skip(skip).limit(limit).to_list(limit)
+        )
         for allocation in allocations:
             allocation["_id"] = str(allocation["_id"])  # Convert ObjectId to string
         return allocations
