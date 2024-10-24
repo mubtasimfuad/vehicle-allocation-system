@@ -14,6 +14,9 @@ RUN apt-get update && apt-get install -y \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
+# Install Pipenv
+RUN pip install --upgrade pip && pip install pipenv
+
 # Copy Pipfile and Pipfile.lock to the working directory
 COPY Pipfile Pipfile.lock /app/
 
@@ -26,12 +29,12 @@ RUN chmod -R 777 /app/logs
 # Copy logging configuration
 COPY logging.conf /app/logging.conf
 
-# Install Pipenv and dependencies
-RUN pip install --upgrade pip && pip install pipenv
-RUN pipenv install --deploy --ignore-pipfile
+# Generate requirements.txt from Pipfile.lock and install dependencies
+RUN pipenv requirements > requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy the rest of the app code to the container
-COPY . /app
+# Copy the entire project, including tests, to /app/
+COPY . /app/  
 
 # Expose port 8000 for the FastAPI app
 EXPOSE 8000
@@ -39,6 +42,7 @@ EXPOSE 8000
 # Set environment variables (dynamic, can be overridden in docker run)
 ENV MONGO_URI=mongodb://localhost:27017/vehicle_allocation_db
 ENV REDIS_HOST=redis://localhost:6379
+ENV ENV=dev
 
 # Command to run the FastAPI app using Uvicorn
-CMD ["pipenv", "run", "uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]

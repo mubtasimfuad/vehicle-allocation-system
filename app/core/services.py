@@ -3,7 +3,6 @@ from app.core.exceptions import DuplicateBookingError, VehicleUnavailableError
 from app.core.models import Allocation, Vehicle
 from datetime import datetime
 from typing import List, Optional, Tuple
-
 from app.infrastructure.db import VehicleRepository
 
 # Set up logging
@@ -24,9 +23,9 @@ class AllocationService:
         vehicle_id: Optional[str] = None,
         start_date: Optional[str] = None,
         end_date: Optional[str] = None,
-        page: int = 1,  # Pagination parameter
-        size: int = 10,  # Pagination parameter
-    ) -> Tuple[List[Allocation], int]:  # Return allocations and total count
+        page: int = 1,
+        size: int = 10,
+    ) -> Tuple[List[Allocation], int]:
         cache_key = (
             f"history:{employee_id}:{vehicle_id}:{start_date}:{end_date}:{page}:{size}"
         )
@@ -35,7 +34,6 @@ class AllocationService:
         cached_allocations = await self.cache.get(cache_key)
         if cached_allocations:
             general_logger.info(f"Cache hit for key: {cache_key}")
-            # Ensure cached result is a tuple with exactly two values (allocations, total_count)
             if isinstance(cached_allocations, tuple) and len(cached_allocations) == 2:
                 return cached_allocations
 
@@ -52,16 +50,13 @@ class AllocationService:
             if end_date:
                 query["from_datetime"]["$lte"] = datetime.fromisoformat(end_date)
 
-        # Pagination setup
         skip = (page - 1) * size
 
-        # Query DB with pagination
         allocations = await self.allocation_repo.get_allocations_by_filter(
             query, skip=skip, limit=size
         )
         total_count = await self.allocation_repo.get_count(query)
 
-        # Ensure to return a tuple with exactly two elements
         result = (allocations, total_count)
 
         # Cache the result for future requests, expires in 1 hour (3600 seconds)
@@ -93,29 +88,24 @@ class AllocationService:
         return existing_booking
 
     async def check_vehicle_availability(self, vehicle_id: str):
-        try:
-            cached_vehicle_status = await self.cache.get(f"vehicle:{vehicle_id}:status")
-            if cached_vehicle_status == "allocated":
-                general_logger.warning(
-                    f"Duplicate booking attempt for vehicle {vehicle_id}"
-                )
-                raise DuplicateBookingError(
-                    f"Vehicle {vehicle_id} is already allocated"
-                )
+        cache_key = f"vehicle:{vehicle_id}:status"
+        cached_vehicle_status = await self.cache.get(cache_key)
 
-            vehicle = await self.vehicle_repo.get_vehicle_by_id(vehicle_id)
-            if not vehicle or vehicle.status != "available":
-                general_logger.warning(f"Vehicle {vehicle_id} is not available")
-                raise VehicleUnavailableError(f"Vehicle {vehicle_id} is not available")
-
-            await self.cache.set(f"vehicle:{vehicle_id}:status", vehicle.status)
-            general_logger.info(
-                f"Vehicle {vehicle_id} status cached as {vehicle.status}"
+        if cached_vehicle_status == "allocated":
+            general_logger.warning(
+                f"Duplicate booking attempt for vehicle {vehicle_id}"
             )
-            return vehicle
-        except Exception as e:
-            error_logger.error(f"Error checking vehicle availability: {e}")
-            raise
+            raise DuplicateBookingError(f"Vehicle {vehicle_id} is already allocated")
+
+        vehicle = await self.vehicle_repo.get_vehicle_by_id(vehicle_id)
+        if not vehicle or vehicle.status != "available":
+            general_logger.warning(f"Vehicle {vehicle_id} is not available")
+            raise VehicleUnavailableError(f"Vehicle {vehicle_id} is not available")
+
+        # Cache vehicle status for future use
+        await self.cache.set(cache_key, vehicle.status, expiration=3600)
+        general_logger.info(f"Vehicle {vehicle_id} status cached as {vehicle.status}")
+        return vehicle
 
     async def allocate_vehicle(
         self,
@@ -126,6 +116,7 @@ class AllocationService:
         purpose: str,
     ):
         try:
+            # Check if the employee has an existing booking
             existing_booking = await self.check_employee_booking(
                 employee_id, from_datetime
             )
@@ -134,8 +125,10 @@ class AllocationService:
                     f"Employee {employee_id} already has a booking on {from_datetime}"
                 )
 
+            # Check if the vehicle is available
             vehicle = await self.check_vehicle_availability(vehicle_id)
 
+            # Start transaction to allocate vehicle
             async with await self.db_client.start_session() as session:
                 async with session.start_transaction():
                     vehicle.status = "allocated"
@@ -157,12 +150,14 @@ class AllocationService:
             await self.cache.delete(f"employee:{employee_id}:booking:{from_datetime}")
             await self.cache.delete_pattern(
                 f"history:*"
-            )  # Invalidate all history cache entries
+            )  # Invalidate all history cache
+
             general_logger.info(
                 f"Vehicle {vehicle_id} allocated to employee {employee_id}, cache invalidated"
             )
 
             return allocation
+
         except (DuplicateBookingError, VehicleUnavailableError) as e:
             general_logger.warning(f"Business rule violation: {e}")
             error_logger.error(f"Allocation error: {e}")
@@ -220,6 +215,7 @@ class AllocationService:
                     await self.cache.delete_pattern(
                         f"history:*"
                     )  # Invalidate history cache
+
                     general_logger.info(
                         f"Allocation {allocation_id} updated, cache invalidated"
                     )

@@ -7,24 +7,31 @@ services:
       - "8000:8000"
     environment:
       - MONGO_URI=mongodb://mongo:27017/${MONGO_DB_NAME:-vehicle_allocation_db}?replicaSet=rs0
-      - MONGO_DB_NAME=${MONGO_DB_NAME:-vehicle_allocation_db}  # Make the DB name dynamic
+      - MONGO_DB_NAME=${MONGO_DB_NAME:-vehicle_allocation_db}
       - REDIS_HOST=redis://redis:6379
     volumes:
       - ./logs:/app/logs
     depends_on:
       - mongo
       - redis
+    command: >
+      sh -c "
+      uvicorn main:app --host 0.0.0.0 --port 8000 & 
+      sleep 10 && pytest --maxfail=1 --disable-warnings
+      "
 
   mongo:
     image: mongo:5.0
-    command: ["mongod", "--replSet", "rs0", "--bind_ip_all"]
+    # logpath null
+    command: ["mongod", "--replSet", "rs0", "--bind_ip_all", "--quiet", "--logpath", "/dev/null"]
+
     ports:
       - "27017:27017"
     volumes:
       - mongo1_data:/data/db
       - ./mongo-init.js:/docker-entrypoint-initdb.d/mongo-init.js
     environment:
-      - MONGO_DB_NAME=${MONGO_DB_NAME:-vehicle_allocation_db}  # Pass the DB name into the container
+      - MONGO_DB_NAME=${MONGO_DB_NAME:-vehicle_allocation_db}
     healthcheck:
       test: echo "try { rs.status() } catch (err) { rs.initiate({_id:'rs0',members:[{_id:0,host:'mongo:27017'}]}) }" | mongosh --port 27017 --quiet
       interval: 5s

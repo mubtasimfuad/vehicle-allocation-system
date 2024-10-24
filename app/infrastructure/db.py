@@ -12,7 +12,7 @@ error_logger = logging.getLogger("errorLogger")  # For error logs
 def get_db():
     """Return the MongoDB database object"""
     # Get MongoDB connection details from environment variables
-    MONGO_URI = os.getenv("MONGO_URI", "mongodb://localhost:27017")
+    MONGO_URI = os.getenv("MONGO_URI", "mongodb://localhost:27017/vehicle_allocation_db?rplicaSet=rs0")
     MONGO_DB_NAME = os.getenv("MONGO_DB_NAME", "vehicle_allocation_db")
     general_logger.info(f"Connecting to MongoDB at {MONGO_URI}...")
     # MongoDB Client
