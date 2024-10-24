@@ -98,5 +98,3 @@ The MongoDB container is configured to run a single-node replica set. The replic
 This project provides a dynamic, scalable vehicle allocation system ready for deployment with MongoDB's replica set and Redis caching.
 
 ---
-
-This **README** provides clear instructions to set up and deploy your FastAPI-based vehicle allocation system with Docker. Let me know if any other details need adjustment!
